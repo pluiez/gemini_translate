@@ -33,10 +33,11 @@ for log_name, log_obj in logging.Logger.manager.loggerDict.items():
 
 class APIPool(object):
     def __init__(self, config):
-        self._api_pool = defaultdict(list)
+        self._api_pool = {}
         self.load_config(config)
 
     def add(self, model, entry):
+        raise NotImplementedError
         self._api_pool[model].append(api)
 
     def load_config(self, config: dict):
@@ -44,6 +45,8 @@ class APIPool(object):
         for old_key in list(config.keys()):
             new_key = old_key
             config[new_key] = config.pop(old_key)
+            if isinstance(config[new_key], dict):
+                config[new_key] = [config[new_key]]
             assert isinstance(
                 config[new_key], list
             ), f"Expected list, got {type(config[new_key])}: {config[new_key]}"
@@ -51,6 +54,8 @@ class APIPool(object):
         self._api_pool.update(config)
 
     def get(self, model):
+        #print(f"model: {model}", file=sys.stderr)
+        #print(f"api_pool: {self._api_pool}", file=sys.stderr)
         return random.choice(self._api_pool[model])
 
 
@@ -302,6 +307,12 @@ class Client(object):
         decoding_params = {k: v for k, v in decoding_params.items() if v is not None}
         while max_retries > 0:
             client = self._get_client()
+            #response = client.chat.completions.create(
+            #    model=self._model,
+            #    messages=messages,
+            #    **decoding_params,
+            #)
+            #break
             try:
                 response = client.chat.completions.create(
                     model=self._model,
@@ -309,7 +320,7 @@ class Client(object):
                     **decoding_params,
                 )
                 break
-            except openai.RateLimitError:
+            except openai.RateLimitError as e:
                 pass
             except openai.APITimeoutError:
                 pass
@@ -317,6 +328,7 @@ class Client(object):
                 pass
             except Exception as e:
                 # Retry if the OpenAI API returns an error
+                print(f"Irrecoverable error ({e}) for request: {json.dumps(messages, ensure_ascii=False)}", file=sys.stderr)
                 if (
                     "We've encountered an issue with repetitive patterns in your prompt"
                     in str(e)
@@ -329,6 +341,7 @@ class Client(object):
                     raise e
 
             max_retries -= 1
+            print(f"Failed to get response from OpenAI API. Retrying...", file=sys.stderr)
             time.sleep(1)
 
         if max_retries == 0:
@@ -344,8 +357,11 @@ class Client(object):
         messages = messages.to_list()
         decoding_params = decoding_params.to_dict() if decoding_params else {}
 
-        response = self._try_until_success(messages, decoding_params)
-        response = response.choices[0].message.content
+        try:
+            response = self._try_until_success(messages, decoding_params)
+            response = response.choices[0].message.content
+        except Exception as e:
+            response = None
 
         return response
 
@@ -500,7 +516,7 @@ def concurrent_call(
     cache_manager = CacheManager(cache_dir, load=load_cache, save=save_cache)
     api_pool = APIPool(api_config)
 
-    client = Client(model=model, api_pool=api_pool)
+    client = Client(model=model, api_pool=api_pool, timeout=300)
 
     def fn(request):
         if request["cache_hit"]:
@@ -540,7 +556,7 @@ def concurrent_call(
         max_workers=max_workers
     ) as executor, cache_manager:
         for result in executor.map(fn, requests):
-            if not result["cache_hit"]:
+            if not result["cache_hit"] and result["response"]:
                 cache_manager.write(
                     result["messages"],
                     model,
