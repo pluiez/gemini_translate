@@ -241,9 +241,13 @@ def process_requests(
             try:
                 translation_dict = parse_first_valid_json(x["response"])
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON: {translation}") from e
+                count_failed += 1
+                continue
+                #raise ValueError(f"Invalid JSON: {translation}") from e
             except ValueError as e:
-                raise ValueError(f"Invalid JSON: {translation}") from e
+                count_failed += 1
+                continue
+                #raise ValueError(f"Invalid JSON: {translation}") from e
 
             input["data"].update(translation_dict)
         else:
