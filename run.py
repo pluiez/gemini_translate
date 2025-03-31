@@ -234,7 +234,11 @@ def process_requests(
             count_failed += 1
             continue
         if x["type"] == "html":
-            translation = remove_markdown_code_syntax(x["response"])
+            try:
+                translation = remove_markdown_code_syntax(x["response"])
+            except Exception as e:
+                count_failed += 1
+                continue
             input["data"][x["key"]] = translation
         elif x["type"] == "json":
             #translation = remove_markdown_code_syntax(x["response"])
