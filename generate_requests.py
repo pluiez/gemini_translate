@@ -216,7 +216,6 @@ def generate_requests(dicts: List[Dict], lang: str) -> List[Dict]:
 
     for d in dicts:
         data = d["data"]
-        index = 0
         # html keys
         for key in html_keys:
             if key not in data:
@@ -231,12 +230,11 @@ def generate_requests(dicts: List[Dict], lang: str) -> List[Dict]:
                 {"role": "user", "content": format_html_data(data[key])},
             ]
             request = {
-                "uuid": f"{d['uuid']}.{index}",
+                "uuid": d["uuid"],
                 "type": "html",
                 "key": key,
                 "messages": messages,
             }
-            index += 1
             yield request
 
         # json keys
@@ -255,12 +253,11 @@ def generate_requests(dicts: List[Dict], lang: str) -> List[Dict]:
             {"role": "user", "content": format_json_data(json_input_dict)},
         ]
         request = {
-            "uuid": f"{d['uuid']}.{index}",
+            "uuid": d["uuid"],
             "type": "json",
-            "keys": list(json_input_dict.keys()),
+            "key": json_keys,
             "messages": messages,
         }
-        index += 1
         yield request
 
 
