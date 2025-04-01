@@ -191,6 +191,12 @@ def filter_keys(dicts: List[Dict]) -> List[Dict]:
             and not pd.isna(v)
             and (not isinstance(v, str) or v.strip())
         }
+
+        if 'Option1 Name' in filtered_dict and filtered_dict['Option1 Name'].lower() == "title":
+            del filtered_dict['Option1 Name']
+        if 'Option1 Value' in filtered_dict and filtered_dict['Option1 Value'].lower() == "default title":
+            del filtered_dict['Option1 Value']
+
         if filtered_dict:
             d = d.copy()
             d["data"] = filtered_dict
