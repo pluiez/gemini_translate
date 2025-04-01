@@ -1,4 +1,6 @@
 import json
+import functools
+import argparse
 import tempfile
 import time
 import zipfile
@@ -167,6 +169,8 @@ def process_requests(
     target_language,
     local_storage,
     max_workers,
+    load_cache=True,
+    save_cache=True,
     progress=gr.Progress(),
 ):
     api_config = local_storage["api_config"]
@@ -203,6 +207,8 @@ def process_requests(
             model=model,
             api_config=api_config,
             cache_dir=".abc",
+            load_cache=load_cache,
+            save_cache=save_cache,
             max_workers=max_workers,
         ),
         desc="Processing",
@@ -270,10 +276,10 @@ def process_requests(
             df.to_csv(output_path, index=False)
 
             # write to jsonl
-            output_path = f"{temp_dir_path}/{Path(filepath).name}.jsonl"
-            with open(output_path, "w") as w:
-                for x in inputs:
-                    w.write(json.dumps(x["data"]) + "\n")
+            #output_path = f"{temp_dir_path}/{Path(filepath).name}.jsonl"
+            #with open(output_path, "w") as w:
+            #    for x in inputs:
+            #        w.write(json.dumps(x["data"]) + "\n")
 
         # Get the current date and time for the zip filename
         now = datetime.now()
@@ -332,7 +338,21 @@ def on_upload_api_config(filepath):
     return [{"api_config": api_config}, api_config, dropdown_model]
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--share", choices=[0, 1], required=True, type=int)
+    parser.add_argument("--enable-cache", action="store_true")
+    args = parser.parse_args()
+
+    args.enable_cache = bool(args.enable_cache)
+    args.share = bool(args.share)
+    return args
+
 if __name__ == "__main__":
+    args = parse_args()
+
+    print(f"args: {args}")
+
     with gr.Blocks() as demo:
         local_storage = gr.BrowserState({"api_config": {}})
 
@@ -397,7 +417,12 @@ if __name__ == "__main__":
         button_download = gr.DownloadButton("Download", interactive=False)
 
         button_start.click(
-            process_requests,
+            #process_requests,
+            functools.partial(
+                process_requests,
+                load_cache=args.enable_cache,
+                save_cache=args.enable_cache,
+            ),
             [
                 input_state,
                 output_state,
@@ -438,4 +463,5 @@ if __name__ == "__main__":
 
             return [saved_values["api_config"], dropdown_model]
 
-    demo.launch(share=True, allowed_paths=["outputs/"])
+    #demo.queue(default_concurrency_limit=10)
+    demo.launch(share=args.share, allowed_paths=["outputs/"], server_name="0.0.0.0")
