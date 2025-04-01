@@ -1,4 +1,5 @@
 import json
+import argparse
 import tempfile
 import time
 import zipfile
@@ -416,11 +417,11 @@ def process_batch_results(requests_hash, api_config):
         # 处理每个翻译结果
         for request_uuid, result in raw_results.items():
             # 从请求UUID获取原始数据的UUID（请求UUID格式为 "{原始UUID}.{index}"）
-            original_uuid = request_uuid.split('.')[0]  
+            original_uuid = request_uuid.split('.')[0]
             response_text = result["text"]
-            
+
             request = uuid2requests[request_uuid]
-                
+
             request_type = request["type"]
 
             # 查找对应的原始输入项
@@ -994,8 +995,19 @@ def save_requests(requests, requests_hash):
     logger.info(f"保存了 {len(requests)} 个请求信息到文件: {filepath}")
     return filepath
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--share", choices=[0, 1], required=True, type=int)
+    args = parser.parse_args()
+
+    args.share = bool(args.share)
+    return args
 
 if __name__ == "__main__":
+    args = parse_args()
+
+    print(f"args: {args}")
+
     # 创建输出目录
     os.makedirs("outputs", exist_ok=True)
     os.makedirs("batch_data", exist_ok=True)
@@ -1047,7 +1059,7 @@ if __name__ == "__main__":
                             ("阿拉伯语", "Arabic"),
                             ("俄语", "Russian"),
                             ("土耳其语", "Turkish"),
-                            
+
                         ],
                         label="目标语言",
                         info="选择要翻译的目标语言",
@@ -1180,6 +1192,7 @@ if __name__ == "__main__":
             [button_download_results],
         )
 
+    #demo.queue(default_concurrency_limit=10)
     # 确保设置了正确的路径权限，允许下载outputs和batch_data目录中的文件
-    demo.launch(share=True, allowed_paths=["outputs", "batch_data"])
+    demo.launch(share=args.share, allowed_paths=["outputs", "batch_data"], server_name="0.0.0.0")
 
