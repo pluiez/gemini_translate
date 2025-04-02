@@ -217,11 +217,14 @@ def format_html_data(text) -> str:
 
 
 def generate_requests(dicts: List[Dict], lang: str) -> List[Dict]:
-    html_keys = get_html_keys(dicts[0]["data"])
-    json_keys = get_json_keys(dicts[0]["data"])
+    #html_keys = get_html_keys(dicts[0]["data"])
+    #json_keys = get_json_keys(dicts[0]["data"])
 
     for d in dicts:
         data = d["data"]
+
+        html_keys = get_html_keys(data)
+        json_keys = get_json_keys(data)
         # html keys
         for key in html_keys:
             if key not in data:
