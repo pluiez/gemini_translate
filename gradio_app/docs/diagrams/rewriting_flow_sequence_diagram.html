@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Content Rewriting Flow Sequence Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: { useMaxWidth: false }
+        });
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Content Rewriting Flow Sequence Diagram</h1>
+    <div class="mermaid">
+    sequenceDiagram
+        autonumber
+        actor User
+        participant GradioUI as Gradio UI
+        participant RunPy as run.py
+        participant GenReq as generate_requests.py
+        participant ConcAPI as concurrent_api.py
+        participant Cache as CacheManager
+        participant APIClient as API Client
+        participant LLM as Language Model API
+
+        User->>GradioUI: Upload CSV file(s)
+        GradioUI->>RunPy: Call upload()
+        RunPy-->>GradioUI: Update state, enable Start button
+        
+        User->>GradioUI: Select "Rewrite" mode
+        GradioUI->>RunPy: Update processing mode
+        
+        User->>GradioUI: Click Start button
+        GradioUI->>RunPy: Call process_requests()
+        
+        RunPy->>GenReq: Call generate_requests_from_file()
+        GenReq->>GenReq: load_csv_as_dicts()
+        GenReq->>GenReq: filter_keys()
+        GenReq->>GenReq: generate_rewrite_requests()
+        GenReq-->>RunPy: Return rewriting requests
+        
+        RunPy->>ConcAPI: Call concurrent_call() with requests
+        ConcAPI->>Cache: Check cache for each request
+        
+        loop For each request
+            alt Cache hit
+                Cache-->>ConcAPI: Return cached response
+            else Cache miss
+                ConcAPI->>APIClient: Send rewrite request to Client.get()
+                APIClient->>LLM: Send request with rewrite prompt
+                LLM-->>APIClient: Return rewritten content
+                APIClient-->>ConcAPI: Return response
+                ConcAPI->>Cache: Write to cache
+            end
+            ConcAPI-->>RunPy: Yield result
+        end
+        
+        RunPy->>RunPy: Update inputs with rewritten content
+        RunPy->>RunPy: Create CSV files with rewritten content
+        RunPy->>RunPy: Create ZIP archive
+        
+        RunPy-->>GradioUI: Return output state, enable Download button
+        GradioUI-->>User: Show download button
+        
+        User->>GradioUI: Click Download button
+        GradioUI-->>User: Download ZIP with rewritten files
+    </div>
+</body>
+</html> 

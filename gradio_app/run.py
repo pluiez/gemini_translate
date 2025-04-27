@@ -1,4 +1,5 @@
 import json
+import copy
 import functools
 import argparse
 import tempfile
@@ -16,6 +17,80 @@ import generate_requests
 
 import re
 
+# ===== 常量定义 =====
+# 目标语言选项列表
+TARGET_LANGUAGES = [
+    ("中文", "Chinese"),
+    ("英文", "English"),
+    ("法语", "French"),
+    ("意大利语", "Italian"),
+    ("西班牙语", "Spanish"),
+    ("葡萄牙语", "Portuguese"),
+    ("德语", "German"),
+    ("日语", "Japanese"),
+    ("韩语", "Korean"),
+    ("阿拉伯语", "Arabic"),
+    ("俄语", "Russian"),
+    ("土耳其语", "Turkish"),
+]
+
+# 处理模式选项
+PROCESS_MODES = ["translate", "rewrite"]
+
+# ===== 组件工厂函数 =====
+def create_radio_mode(value="translate"):
+    """创建处理模式选择组件"""
+    return gr.Radio(
+        PROCESS_MODES,
+        label="处理模式",
+        value=value,
+        info="选择翻译或改写模式（改写模式仅处理标题）"
+    )
+
+def create_target_language_dropdown(value="English", interactive=True):
+    """创建目标语言下拉菜单"""
+    return gr.Dropdown(
+        choices=TARGET_LANGUAGES,
+        label="目标语言",
+        info="选择要翻译的目标语言",
+        value=value,
+        key="dropdown_target_language",
+        interactive=interactive
+    )
+
+def create_num_rewrites_slider(value=3, interactive=False):
+    """创建生成标题数量滑块"""
+    return gr.Slider(
+        minimum=1,
+        maximum=64,
+        value=value,
+        step=1,
+        label="生成标题数量",
+        info="设置要生成的改写标题数量",
+        interactive=interactive
+    )
+
+def create_model_dropdown(choices=None, value=None):
+    """创建模型选择下拉菜单"""
+    return gr.Dropdown(
+        choices=choices or [],
+        value=value,
+        label="Model",
+        info="Select model",
+        interactive=True,
+        key="dropdown_model",
+    )
+
+def create_max_workers_slider(value=1):
+    """创建最大并发数滑块"""
+    return gr.Slider(
+        minimum=1,
+        maximum=64,
+        value=value,
+        step=1,
+        label="Max workers",
+        key="slider_max_workers",
+    )
 
 def parse_first_valid_json(text: str):
     """
@@ -115,13 +190,19 @@ def load_dirty_json(json_str):
     except json.JSONDecodeError as e:
         return json.loads(fix_broken_json(json_str))
 
-def generate_requests_from_file(filepath, target_language):
+def generate_requests_from_file(filepath, target_language, mode="translate", num_rewrites=1):
     inputs = generate_requests.load_csv_as_dicts(filepath)
     filtered = generate_requests.filter_keys(inputs)
 
     requests = []
-    for request in generate_requests.generate_requests(filtered, target_language):
-        request["filepath"] = filepath
+    if mode == "translate":
+        requests_generator = generate_requests.generate_requests(filtered, target_language)
+    elif mode == "rewrite":
+        requests_generator = generate_requests.generate_rewrite_requests(filtered, num_rewrites)
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+    for request in requests_generator:
         requests.append(request)
 
     return [inputs, requests]
@@ -169,6 +250,8 @@ def process_requests(
     target_language,
     local_storage,
     max_workers,
+    mode="translate",
+    num_rewrites=1,
     load_cache=True,
     save_cache=True,
     progress=gr.Progress(),
@@ -179,23 +262,39 @@ def process_requests(
     print(f"api_config: {api_config}")
     print(f"target_language: {target_language}")
     print(f"max_workers: {max_workers}")
+    print(f"mode: {mode}")
+    print(f"num_rewrites: {num_rewrites}")
 
     requests = []
 
-    filepath2inputs = {}
+    inputs = []
+    uuid2outputs = {}
 
     gr.Info("Generating requests...", title="Processing", duration=3)
+
+    filenames = []
 
     for filepath in progress.tqdm(
         input_state["files"], desc="Generating requests", unit="file"
     ):
         file_inputs, file_requests = generate_requests_from_file(
-            filepath, target_language
+            filepath, target_language, mode, num_rewrites
         )
-        filepath2inputs[filepath] = file_inputs
+        inputs += file_inputs
         requests += file_requests
 
-    gr.Info("Generating translation...", title="Processing", duration=3)
+        for x in file_inputs:
+            uuid2outputs[x["uuid"]] = [x]
+        
+        filenames.append(file_inputs[0]["filename"])
+    
+    if mode == "rewrite":
+        for _, outputs in uuid2outputs.items():
+            # deepcopy the outputs for num_rewrites times 
+            for _ in range(num_rewrites - 1):
+                outputs.append(copy.deepcopy(outputs[0]))
+
+    gr.Info("Calling API...", title="Processing", duration=3)
     # reset progress
     progress(0)
 
@@ -219,23 +318,15 @@ def process_requests(
 
         count_cache_hit += int(x["cache_hit"])
 
-    filepath2uuid2inputs = {}
-
     gr.Info("Updating inputs...", title="Processing", duration=3)
 
     progress(0)
     count_failed = 0
     for x in progress.tqdm(responses, desc="Updating inputs", total=len(responses)):
-        filepath = x["filepath"]
-        if filepath not in filepath2uuid2inputs:
-            filepath2uuid2inputs[filepath] = {}
-            for y in filepath2inputs[filepath]:
-                filepath2uuid2inputs[filepath][y["uuid"]] = y
-
-        input = filepath2uuid2inputs[filepath][x["uuid"]]
+        outputs = uuid2outputs[x["uuid"]]
         x["messages"] = x["messages"].to_list()
         del x["decoding_params"]
-        print(json.dumps(x, ensure_ascii=False, indent=2))
+        #print(json.dumps(x, ensure_ascii=False, indent=2))
         if x["response"] is None:
             count_failed += 1
             continue
@@ -245,7 +336,7 @@ def process_requests(
             except Exception as e:
                 count_failed += 1
                 continue
-            input["data"][x["key"]] = translation
+            outputs[0]["data"][x["key"]] = translation
         elif x["type"] == "json":
             #translation = remove_markdown_code_syntax(x["response"])
             try:
@@ -259,21 +350,44 @@ def process_requests(
                 continue
                 #raise ValueError(f"Invalid JSON: {translation}") from e
 
-            input["data"].update(translation_dict)
+            # Handle rewrite mode with multiple title suggestions
+            if "Titles" in translation_dict:
+                for output, title in zip(outputs, translation_dict["Titles"]):
+                    output["data"]["Title"] = title
+            else:
+                outputs[0]["data"].update(translation_dict)
         else:
             raise NotImplementedError(f"Unknown type: {x['type']}")
-    gr.Warning(
-        f"Failed to translate {count_failed} out of {len(responses)} requests.", title="Processing", duration=5
-    )
+            
+    if count_failed > 0:
+        gr.Warning(
+            f"Failed to translate {count_failed} out of {len(responses)} requests.", title="Processing", duration=5
+        )
+    else:
+        gr.Info(
+            f"Successfully processed all {len(responses)} requests.", title="Processing", duration=5
+        )
 
     gr.Info("Creating zip archive...", title="Processing", duration=3)
     with tempfile.TemporaryDirectory() as temp_dir_path:
-        for filepath, inputs in filepath2inputs.items():
+        for filename in filenames:
+            file_outputs = []
+            for uuid, item_outputs in uuid2outputs.items():
+                if uuid.startswith(filename):
+                    file_outputs.append(item_outputs)
+
+            file_outputs = list(zip(*file_outputs))
+
+            if mode == "translate":
+                assert len(file_outputs) == 1, f"Expected 1 output, got {len(file_outputs)}"
+            elif mode == "rewrite":
+                assert len(file_outputs) == num_rewrites, f"Expected {num_rewrites} outputs, got {len(file_outputs)}"
+
             # write to csv
-            output_path = f"{temp_dir_path}/{Path(filepath).name}"
-            # convert inputs to pandas dataframe, inputs is a list of dict
-            df = pd.DataFrame([x["data"] for x in inputs])
-            df.to_csv(output_path, index=False)
+            for i, outputs in enumerate(file_outputs):
+                output_path = f"{temp_dir_path}/{filename}_{i}.csv"
+                df = pd.DataFrame([x["data"] for x in outputs])
+                df.to_csv(output_path, index=False)
 
             # write to jsonl
             #output_path = f"{temp_dir_path}/{Path(filepath).name}.jsonl"
@@ -287,6 +401,8 @@ def process_requests(
         zip_file_path = f"outputs/{formatted_time}.zip"
 
         # Create a zip file containing all files from the temporary directory
+        # Create the outputs directory if it doesn't exist
+        Path("outputs").mkdir(exist_ok=True)
         with zipfile.ZipFile(zip_file_path, "w") as zipf:
             for file_path in Path(temp_dir_path).iterdir():
                 if file_path.is_file():
@@ -354,7 +470,15 @@ if __name__ == "__main__":
     print(f"args: {args}")
 
     with gr.Blocks() as demo:
-        local_storage = gr.BrowserState({"api_config": {}})
+        # 初始化所有需要持久化的配置
+        local_storage = gr.BrowserState({
+            "api_config": {},
+            "num_rewrites": 3,
+            "mode": "translate",
+            "target_language": "English",
+            "max_workers": 1,
+            "selected_model": ""
+        })
 
         input_state = gr.State({"files": []})
         output_state = gr.State({"filename": ""})
@@ -365,39 +489,13 @@ if __name__ == "__main__":
 
         with gr.Row():
             with gr.Column():
-                dropdown_model = gr.Dropdown(
-                    choices=[],
-                    label="Model",
-                    info="Select model",
-                    key="dropdown_model",
-                )
-                dropdown_target_language = gr.Dropdown(
-                    [
-                        ("中文", "Chinese"),
-                        ("英文", "English"),
-                        ("法语", "French"),
-                        ("意大利语", "Italian"),
-                        ("西班牙语", "Spanish"),
-                        ("葡萄牙语", "Portuguese"),
-                        ("德语", "German"),
-                        ("日语", "Japanese"),
-                        ("韩语", "Korean"),
-                        ("阿拉伯语", "Arabic"),
-                        ("俄语", "Russian"),
-                        ("土耳其语", "Turkish"),
-                    ],
-                    label="目标语言",
-                    info="选择要翻译的目标语言",
-                    key="dropdown_target_language",
-                )
-                slider_max_workers = gr.Slider(
-                    minimum=1,
-                    maximum=64,
-                    value=1,
-                    step=1,
-                    label="Max workers",
-                    key="slider_max_workers",
-                )
+                # 使用工厂函数创建组件
+                radio_mode = create_radio_mode()
+                slider_num_rewrites = create_num_rewrites_slider()
+                dropdown_model = create_model_dropdown()
+                dropdown_target_language = create_target_language_dropdown()
+                slider_max_workers = create_max_workers_slider()
+                
             with gr.Column():
                 button_upload_api_config = gr.UploadButton(
                     "Upload API Config", file_count="single"
@@ -416,6 +514,39 @@ if __name__ == "__main__":
 
         button_download = gr.DownloadButton("Download", interactive=False)
 
+        # 统一的持久化函数与设置定义
+        def save_setting(name, value, storage):
+            storage[name] = value
+            return storage
+        
+        # 定义需要持久化的设置项及其对应的UI组件
+        persistent_settings = [
+            {"name": "mode", "component": radio_mode},
+            {"name": "num_rewrites", "component": slider_num_rewrites},
+            {"name": "target_language", "component": dropdown_target_language},
+            {"name": "max_workers", "component": slider_max_workers},
+            {"name": "selected_model", "component": dropdown_model}
+        ]
+        
+        # 统一注册所有持久化事件
+        for setting in persistent_settings:
+            setting["component"].change(
+                lambda v, s, name=setting["name"]: save_setting(name, v, s),
+                [setting["component"], local_storage],
+                [local_storage]
+            )
+
+        # 添加模式变更事件处理
+        def update_mode_ui(mode):
+            # 改写模式下启用标题数量滑块，禁用目标语言选择
+            # 翻译模式下禁用标题数量滑块，启用目标语言选择
+            return [
+                gr.Slider(interactive=(mode == "rewrite")),
+                gr.Dropdown(interactive=(mode == "translate"))
+            ]
+
+        radio_mode.change(update_mode_ui, radio_mode, [slider_num_rewrites, dropdown_target_language])
+
         button_start.click(
             #process_requests,
             functools.partial(
@@ -430,6 +561,8 @@ if __name__ == "__main__":
                 dropdown_target_language,
                 local_storage,
                 slider_max_workers,
+                radio_mode,
+                slider_num_rewrites,
             ],
             [textbox_output_filename, output_state, button_download],
         )
@@ -449,19 +582,60 @@ if __name__ == "__main__":
             [button_upload, button_download],
         )
 
-        @demo.load(inputs=[local_storage], outputs=[gr_json_api_config, dropdown_model])
+        @demo.load(inputs=[local_storage], outputs=[
+            gr_json_api_config, 
+            dropdown_model, 
+            dropdown_target_language,
+            slider_max_workers,
+            radio_mode,
+            slider_num_rewrites
+        ])
         def load_from_local_storage(saved_values):
             print("loading from local storage", saved_values)
-
-            dropdown_model = gr.Dropdown(
-                choices=list(saved_values["api_config"].keys()),
-                label="Model",
-                info="Select model",
-                interactive=True,
-                key="dropdown_model",
+            
+            # 恢复API配置和模型选择
+            api_config = saved_values.get("api_config", {})
+            model_choices = list(api_config.keys())
+            selected_model = saved_values.get("selected_model", "")
+            
+            if selected_model not in model_choices and model_choices:
+                selected_model = model_choices[0]
+                
+            # 恢复处理模式
+            mode = saved_values.get("mode", "translate")
+            
+            # 使用工厂函数创建组件 - 保持参数一致性
+            new_dropdown_model = create_model_dropdown(
+                choices=model_choices,
+                value=selected_model or None
+            )
+            
+            new_dropdown_target_language = create_target_language_dropdown(
+                value=saved_values.get("target_language", "English"),
+                interactive=(mode == "translate")
+            )
+            
+            new_slider_max_workers = create_max_workers_slider(
+                value=saved_values.get("max_workers", 1)
+            )
+            
+            new_radio_mode = create_radio_mode(
+                value=mode
+            )
+            
+            new_slider_num_rewrites = create_num_rewrites_slider(
+                value=saved_values.get("num_rewrites", 3),
+                interactive=(mode == "rewrite")
             )
 
-            return [saved_values["api_config"], dropdown_model]
+            return [
+                api_config, 
+                new_dropdown_model, 
+                new_dropdown_target_language,
+                new_slider_max_workers,
+                new_radio_mode,
+                new_slider_num_rewrites
+            ]
 
     #demo.queue(default_concurrency_limit=10)
     demo.launch(share=args.share, allowed_paths=["outputs/"], server_name="0.0.0.0")

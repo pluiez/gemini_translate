@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Translation Flow Sequence Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .mermaid {
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Translation Flow Sequence Diagram</h1>
+    
+    <div class="mermaid">
+        sequenceDiagram
+            autonumber
+            actor User
+            participant GradioUI as Gradio UI
+            participant RunPy as run.py
+            participant GenReq as generate_requests.py
+            participant ConcAPI as concurrent_api.py
+            participant Cache as CacheManager
+            participant APIClient as API Client
+            participant LLM as Language Model API
+
+            User->>GradioUI: Upload CSV file(s)
+            GradioUI->>RunPy: Call upload()
+            RunPy-->>GradioUI: Update state, enable Start button
+            
+            User->>GradioUI: Click Start button
+            GradioUI->>RunPy: Call process_requests()
+            
+            RunPy->>GenReq: Call generate_requests_from_file()
+            GenReq->>GenReq: load_csv_as_dicts()
+            GenReq->>GenReq: filter_keys()
+            GenReq->>GenReq: generate_requests()
+            GenReq-->>RunPy: Return translation requests
+            
+            RunPy->>ConcAPI: Call concurrent_call() with requests
+            ConcAPI->>Cache: Check cache for each request
+            
+            loop For each request
+                alt Cache hit
+                    Cache-->>ConcAPI: Return cached response
+                else Cache miss
+                    ConcAPI->>APIClient: Send request to Client.get()
+                    APIClient->>LLM: Send request to language model
+                    LLM-->>APIClient: Return translation
+                    APIClient-->>ConcAPI: Return response
+                    ConcAPI->>Cache: Write to cache
+                end
+                ConcAPI-->>RunPy: Yield result
+            end
+            
+            RunPy->>RunPy: Update inputs with translations
+            RunPy->>RunPy: Create CSV files with translations
+            RunPy->>RunPy: Create ZIP archive
+            
+            RunPy-->>GradioUI: Return output state, enable Download button
+            GradioUI-->>User: Show download button
+            
+            User->>GradioUI: Click Download button
+            GradioUI-->>User: Download ZIP with translated files
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+</body>
+</html> 

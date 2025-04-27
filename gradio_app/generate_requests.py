@@ -149,6 +149,94 @@ In this example, the target language is English.
   ```
 """
 
+    title_rewrite = """## Task Description
+
+You are an SEO optimization expert. Your task is to rewrite product titles to improve their originality and search engine ranking while maintaining core product information.
+
+## Guidelines
+- Keep core product information, specifications, and dimensions unchanged
+- Reorder words or phrases to improve readability and SEO
+- Replace generic terms with more specific, descriptive alternatives
+- Distribute keywords naturally throughout the title
+- Optimize for better click-through rates with engaging wording
+- Maintain the same overall meaning and product identity
+- Use natural language structure instead of symbols like "|" as separators
+- Focus on creating fluid, readable titles that flow naturally
+- Always maintain the same language as the original title
+
+## Input Format
+```json
+{{
+  "Title": "Original product title"
+}}
+```
+
+## Output Format
+Return a valid JSON with an array of rewritten titles:
+```json
+{{
+  "Titles": [
+    "First rewritten title variation",
+    "Second rewritten title variation",
+    ...
+  ]
+}}
+```
+
+Generate exactly {num_rewrites} unique title variations. Maximize diversity between titles by:
+- Using different sentence structures and word arrangements
+- Emphasizing different product aspects in each variation
+- Varying the style from descriptive to benefit-focused to feature-focused
+- Exploring different emotional appeals while maintaining accuracy
+- Avoiding minor word substitutions - each title should be substantially different
+
+Each title must individually meet all the SEO guidelines above while collectively offering maximum diversity.
+
+## Examples
+
+### Example 1: Basic Rewrite
+
+- **Example Input**
+
+  ```json
+  {{
+    "Title": "Modern Coffee Table 47 inch for Living Room with Storage Shelf"
+  }}
+  ```
+
+- **Example Output**
+
+  ```json
+  {{
+    "Titles": [
+      "Contemporary 47-inch Living Room Coffee Table with Convenient Storage Shelf",
+      "Functional Living Room Coffee Table with 47-inch Surface and Integrated Storage"
+    ]
+  }}
+  ```
+
+### Example 2: Technical Product
+
+- **Example Input**
+
+  ```json
+  {{
+    "Title": "Wireless Bluetooth Headphones Noise Cancelling 30H Playtime"
+  }}
+  ```
+
+- **Example Output**
+
+  ```json
+  {{
+    "Titles": [
+      "Premium Noise Cancelling Bluetooth Headphones with 30-Hour Battery Life for Wireless Listening",
+      "Long-Lasting Wireless Headphones featuring Advanced Noise Cancellation and 30-Hour Playtime",
+      "Ultra Comfortable Bluetooth Headphones offering 30 Hours of Uninterrupted Noise-Free Audio"
+    ]
+  }}
+  ```"""
+
 
 def get_html_keys(d):
     return ["Body (HTML)"]
@@ -160,14 +248,18 @@ def get_json_keys(d):
 
 
 def load_csv_as_dicts(path: str) -> List[Dict]:
-    df = pd.read_csv(path)
+    filename = os.path.basename(path)
+    # df = pd.read_csv(path)
+    with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+        df = pd.read_csv(f)
+
     dicts = df.to_dict(orient="records")
 
     for i, d in enumerate(dicts):
         for k, v in d.items():
             d[k] = v.strip() if isinstance(v, str) else v
         # associate with an id
-        wrapped = {"uuid": str(uuid.uuid4()), "data": d}
+        wrapped = {"uuid": f"{filename}-{i}", "data": d, "filename": filename}
         dicts[i] = wrapped
 
     return dicts
@@ -267,6 +359,35 @@ def generate_requests(dicts: List[Dict], lang: str) -> List[Dict]:
             "key": json_keys,
             "messages": messages,
         }
+        yield request
+
+
+def generate_rewrite_requests(dicts: List[Dict], num_rewrites=1) -> List[Dict]:
+    for d in dicts:
+        data = d["data"]
+        
+        if "Title" not in data:
+            continue
+            
+        title_dict = {"Title": data["Title"]}
+        
+        messages = [
+            {
+                "role": "system",
+                "content": SystemPromptTemplates.title_rewrite.format(
+                    num_rewrites=num_rewrites
+                ),
+            },
+            {"role": "user", "content": format_json_data(title_dict)},
+        ]
+        
+        request = {
+            "uuid": d["uuid"],
+            "type": "json",
+            "key": ["Title"],
+            "messages": messages,
+        }
+        
         yield request
 
 

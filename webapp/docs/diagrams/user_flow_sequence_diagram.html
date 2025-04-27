@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Translate 前后端分离版本用户流程时序图</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .sequence-diagram {
+            overflow-x: auto;
+        }
+        .actor {
+            fill: #e1f5fe;
+            stroke: #01579b;
+            stroke-width: 2;
+        }
+        .actor-frontend {
+            fill: #e3f2fd;
+            stroke: #1565c0;
+            stroke-width: 2;
+        }
+        .actor-backend {
+            fill: #e8f5e9;
+            stroke: #2e7d32;
+            stroke-width: 2;
+        }
+        .actor-queue {
+            fill: #fff3e0;
+            stroke: #e65100;
+            stroke-width: 2;
+        }
+        .actor-api {
+            fill: #f3e5f5;
+            stroke: #6a1b9a;
+            stroke-width: 2;
+        }
+        .lifeline {
+            stroke: #01579b;
+            stroke-width: 1;
+            stroke-dasharray: 5,5;
+        }
+        .lifeline-frontend {
+            stroke: #1565c0;
+            stroke-width: 1;
+            stroke-dasharray: 5,5;
+        }
+        .lifeline-backend {
+            stroke: #2e7d32;
+            stroke-width: 1;
+            stroke-dasharray: 5,5;
+        }
+        .lifeline-queue {
+            stroke: #e65100;
+            stroke-width: 1;
+            stroke-dasharray: 5,5;
+        }
+        .lifeline-api {
+            stroke: #6a1b9a;
+            stroke-width: 1;
+            stroke-dasharray: 5,5;
+        }
+        .message {
+            stroke: #01579b;
+            stroke-width: 1.5;
+            marker-end: url(#arrowhead);
+        }
+        .message-frontend {
+            stroke: #1565c0;
+            stroke-width: 1.5;
+            marker-end: url(#arrowhead-frontend);
+        }
+        .message-backend {
+            stroke: #2e7d32;
+            stroke-width: 1.5;
+            marker-end: url(#arrowhead-backend);
+        }
+        .message-queue {
+            stroke: #e65100;
+            stroke-width: 1.5;
+            marker-end: url(#arrowhead-queue);
+        }
+        .return-message {
+            stroke: #4caf50;
+            stroke-width: 1;
+            stroke-dasharray: 2,2;
+            marker-end: url(#returnarrowhead);
+        }
+        .activation {
+            fill: #b3e5fc;
+            stroke: #0288d1;
+            stroke-width: 1;
+        }
+        .activation-frontend {
+            fill: #bbdefb;
+            stroke: #1565c0;
+            stroke-width: 1;
+        }
+        .activation-backend {
+            fill: #c8e6c9;
+            stroke: #2e7d32;
+            stroke-width: 1;
+        }
+        .activation-queue {
+            fill: #ffe0b2;
+            stroke: #e65100;
+            stroke-width: 1;
+        }
+        .activation-api {
+            fill: #e1bee7;
+            stroke: #6a1b9a;
+            stroke-width: 1;
+        }
+        text {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            font-size: 12px;
+        }
+        .title-text {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .api-text {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            fill: #455a64;
+        }
+        .note {
+            fill: #fff9c4;
+            stroke: #fbc02d;
+            stroke-width: 1;
+        }
+        .note-text {
+            font-size: 11px;
+        }
+        .legend {
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .legend h3 {
+            margin-bottom: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gemini Translate 前后端分离版本用户流程时序图</h1>
+        <div class="sequence-diagram">
+            <svg width="950" height="1300" xmlns="http://www.w3.org/2000/svg">
+                <!-- Definitions for arrowheads -->
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7"
+                    refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#01579b" />
+                    </marker>
+                    <marker id="arrowhead-frontend" markerWidth="10" markerHeight="7"
+                    refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#1565c0" />
+                    </marker>
+                    <marker id="arrowhead-backend" markerWidth="10" markerHeight="7"
+                    refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#2e7d32" />
+                    </marker>
+                    <marker id="arrowhead-queue" markerWidth="10" markerHeight="7"
+                    refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#e65100" />
+                    </marker>
+                    <marker id="returnarrowhead" markerWidth="10" markerHeight="7"
+                    refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#4caf50" />
+                    </marker>
+                </defs>
+                
+                <!-- Actors -->
+                <rect x="50" y="20" width="100" height="40" rx="5" class="actor" />
+                <text x="100" y="45" text-anchor="middle" class="title-text">用户</text>
+                
+                <rect x="200" y="20" width="120" height="40" rx="5" class="actor-frontend" />
+                <text x="260" y="45" text-anchor="middle" class="title-text">前端 (React)</text>
+                
+                <rect x="370" y="20" width="120" height="40" rx="5" class="actor-backend" />
+                <text x="430" y="45" text-anchor="middle" class="title-text">后端 API (FastAPI)</text>
+                
+                <rect x="540" y="20" width="120" height="40" rx="5" class="actor-queue" />
+                <text x="600" y="45" text-anchor="middle" class="title-text">任务队列 (Celery)</text>
+                
+                <rect x="710" y="20" width="120" height="40" rx="5" class="actor-api" />
+                <text x="770" y="45" text-anchor="middle" class="title-text">AI 模型 API</text>
+                
+                <!-- Lifelines -->
+                <line x1="100" y1="60" x2="100" y2="1240" class="lifeline" />
+                <line x1="260" y1="60" x2="260" y2="1240" class="lifeline-frontend" />
+                <line x1="430" y1="60" x2="430" y2="1240" class="lifeline-backend" />
+                <line x1="600" y1="60" x2="600" y2="1240" class="lifeline-queue" />
+                <line x1="770" y1="60" x2="770" y2="1240" class="lifeline-api" />
+                
+                <!-- Actor copies at bottom -->
+                <rect x="50" y="1240" width="100" height="40" rx="5" class="actor" />
+                <text x="100" y="1265" text-anchor="middle" class="title-text">用户</text>
+                
+                <rect x="200" y="1240" width="120" height="40" rx="5" class="actor-frontend" />
+                <text x="260" y="1265" text-anchor="middle" class="title-text">前端 (React)</text>
+                
+                <rect x="370" y="1240" width="120" height="40" rx="5" class="actor-backend" />
+                <text x="430" y="1265" text-anchor="middle" class="title-text">后端 API (FastAPI)</text>
+                
+                <rect x="540" y="1240" width="120" height="40" rx="5" class="actor-queue" />
+                <text x="600" y="1265" text-anchor="middle" class="title-text">任务队列 (Celery)</text>
+                
+                <rect x="710" y="1240" width="120" height="40" rx="5" class="actor-api" />
+                <text x="770" y="1265" text-anchor="middle" class="title-text">AI 模型 API</text>
+                
+                <!-- Activations -->
+                <rect x="95" y="80" width="10" height="1140" class="activation" />
+                <rect x="255" y="100" width="10" height="1120" class="activation-frontend" />
+                <rect x="425" y="180" width="10" height="1020" class="activation-backend" />
+                <rect x="595" y="620" width="10" height="500" class="activation-queue" />
+                <rect x="765" y="720" width="10" height="300" class="activation-api" />
+                
+                <!-- 1. 访问应用网站 -->
+                <line x1="100" y1="100" x2="260" y2="100" class="message" />
+                <text x="180" y="95" text-anchor="middle">1. 访问应用网站</text>
+                
+                <line x1="260" y1="120" x2="100" y2="120" class="return-message" />
+                <text x="180" y="115" text-anchor="middle">加载应用界面</text>
+                
+                <!-- 2. 上传CSV文件 -->
+                <line x1="100" y1="160" x2="260" y2="160" class="message" />
+                <text x="180" y="155" text-anchor="middle">2. 上传CSV文件</text>
+                
+                <line x1="260" y1="180" x2="430" y2="180" class="message-frontend" />
+                <text x="345" y="175" text-anchor="middle" class="api-text">POST /api/files</text>
+                
+                <line x1="430" y1="200" x2="260" y2="200" class="return-message" />
+                <text x="345" y="195" text-anchor="middle">返回文件ID和基本信息</text>
+                
+                <line x1="260" y1="220" x2="430" y2="220" class="message-frontend" />
+                <text x="345" y="215" text-anchor="middle" class="api-text">GET /api/files/{fileId}/preview</text>
+                
+                <line x1="430" y1="240" x2="260" y2="240" class="return-message" />
+                <text x="345" y="235" text-anchor="middle">返回文件预览数据</text>
+                
+                <line x1="260" y1="260" x2="100" y2="260" class="return-message" />
+                <text x="180" y="255" text-anchor="middle">显示文件预览和解析结果</text>
+                
+                <!-- 3. 上传API配置文件 -->
+                <line x1="100" y1="300" x2="260" y2="300" class="message" />
+                <text x="180" y="295" text-anchor="middle">3. 上传API配置文件</text>
+                
+                <line x1="260" y1="320" x2="430" y2="320" class="message-frontend" />
+                <text x="345" y="315" text-anchor="middle" class="api-text">POST /api/api-configs/upload</text>
+                
+                <line x1="430" y1="340" x2="260" y2="340" class="return-message" />
+                <text x="345" y="335" text-anchor="middle">API配置文件处理完成</text>
+                
+                <line x1="260" y1="360" x2="100" y2="360" class="return-message" />
+                <text x="180" y="355" text-anchor="middle">显示可用的API配置选项</text>
+                
+                <!-- 4. 选择目标语言 -->
+                <line x1="100" y1="400" x2="260" y2="400" class="message" />
+                <text x="180" y="395" text-anchor="middle">4. 选择目标语言</text>
+                
+                <line x1="260" y1="420" x2="100" y2="420" class="return-message" />
+                <text x="180" y="415" text-anchor="middle">更新UI状态</text>
+                
+                <!-- 5. 选择AI模型 -->
+                <line x1="100" y1="460" x2="260" y2="460" class="message" />
+                <text x="180" y="455" text-anchor="middle">5. 选择AI模型</text>
+                
+                <line x1="260" y1="480" x2="100" y2="480" class="return-message" />
+                <text x="180" y="475" text-anchor="middle">更新UI状态</text>
+                
+                <!-- 6. 配置API参数 -->
+                <line x1="100" y1="520" x2="260" y2="520" class="message" />
+                <text x="180" y="515" text-anchor="middle">6. 配置API参数</text>
+                
+                <line x1="260" y1="540" x2="430" y2="540" class="message-frontend" />
+                <text x="345" y="535" text-anchor="middle" class="api-text">POST /api/api-configs/settings</text>
+                
+                <line x1="430" y1="560" x2="260" y2="560" class="return-message" />
+                <text x="345" y="555" text-anchor="middle">配置保存确认</text>
+                
+                <line x1="260" y1="580" x2="100" y2="580" class="return-message" />
+                <text x="180" y="575" text-anchor="middle">显示配置已保存</text>
+                
+                <!-- 7. 开始翻译 -->
+                <line x1="100" y1="620" x2="260" y2="620" class="message" />
+                <text x="180" y="615" text-anchor="middle">7. 开始翻译</text>
+                
+                <line x1="260" y1="640" x2="430" y2="640" class="message-frontend" />
+                <text x="345" y="635" text-anchor="middle" class="api-text">POST /api/tasks</text>
+                
+                <line x1="430" y1="660" x2="600" y2="660" class="message-backend" />
+                <text x="515" y="655" text-anchor="middle">创建异步翻译任务</text>
+                
+                <line x1="430" y1="680" x2="260" y2="680" class="return-message" />
+                <text x="345" y="675" text-anchor="middle">返回任务ID</text>
+                
+                <line x1="260" y1="700" x2="100" y2="700" class="return-message" />
+                <text x="180" y="695" text-anchor="middle">显示任务已创建</text>
+                
+                <!-- 轮询任务状态 (初始) -->
+                <line x1="260" y1="740" x2="430" y2="740" class="message-frontend" />
+                <text x="345" y="735" text-anchor="middle" class="api-text">GET /api/tasks/{taskId}</text>
+                
+                <line x1="430" y1="760" x2="600" y2="760" class="message-backend" />
+                <text x="515" y="755" text-anchor="middle">查询任务状态</text>
+                
+                <line x1="600" y1="780" x2="430" y2="780" class="return-message" />
+                <text x="515" y="775" text-anchor="middle">返回任务进度 (0%)</text>
+                
+                <line x1="430" y1="800" x2="260" y2="800" class="return-message" />
+                <text x="345" y="795" text-anchor="middle">任务进度更新</text>
+                
+                <line x1="260" y1="820" x2="100" y2="820" class="return-message" />
+                <text x="180" y="815" text-anchor="middle">显示初始进度 (0%)</text>
+                
+                <!-- 发送翻译请求 -->
+                <line x1="600" y1="860" x2="770" y2="860" class="message-queue" />
+                <text x="685" y="855" text-anchor="middle">批量发送翻译请求</text>
+                
+                <!-- 并行处理备注 -->
+                <rect x="780" y="880" width="150" height="40" class="note" />
+                <text x="855" y="895" text-anchor="middle" class="note-text">并行处理多个</text>
+                <text x="855" y="910" text-anchor="middle" class="note-text">翻译项</text>
+                
+                <!-- 轮询任务状态 (25%) -->
+                <line x1="260" y1="940" x2="430" y2="940" class="message-frontend" />
+                <text x="345" y="935" text-anchor="middle" class="api-text">GET /api/tasks/{taskId}</text>
+                
+                <line x1="430" y1="960" x2="600" y2="960" class="message-backend" />
+                <text x="515" y="955" text-anchor="middle">查询任务状态</text>
+                
+                <line x1="600" y1="980" x2="430" y2="980" class="return-message" />
+                <text x="515" y="975" text-anchor="middle">返回任务进度 (50%)</text>
+                
+                <line x1="430" y1="1000" x2="260" y2="1000" class="return-message" />
+                <text x="345" y="995" text-anchor="middle">任务进度更新</text>
+                
+                <line x1="260" y1="1020" x2="100" y2="1020" class="return-message" />
+                <text x="180" y="1015" text-anchor="middle">显示进度 (50%)</text>
+                
+                <!-- 翻译完成 -->
+                <line x1="770" y1="1060" x2="600" y2="1060" class="return-message" />
+                <text x="685" y="1055" text-anchor="middle">返回全部翻译结果</text>
+                
+                <line x1="600" y1="1080" x2="430" y2="1080" class="return-message" />
+                <text x="515" y="1075" text-anchor="middle">更新任务状态为完成</text>
+                
+                <!-- 获取结果 -->
+                <line x1="260" y1="1120" x2="430" y2="1120" class="message-frontend" />
+                <text x="345" y="1115" text-anchor="middle" class="api-text">GET /api/tasks/{taskId}/results</text>
+                
+                <line x1="430" y1="1140" x2="260" y2="1140" class="return-message" />
+                <text x="345" y="1135" text-anchor="middle">返回翻译结果数据</text>
+                
+                <line x1="260" y1="1160" x2="100" y2="1160" class="return-message" />
+                <text x="180" y="1155" text-anchor="middle">显示翻译完成和结果预览</text>
+                
+                <!-- 8. 下载结果 -->
+                <line x1="100" y1="1200" x2="260" y2="1200" class="message" />
+                <text x="180" y="1195" text-anchor="middle">8. 下载结果</text>
+                
+                <line x1="260" y1="1220" x2="430" y2="1220" class="message-frontend" />
+                <text x="345" y="1215" text-anchor="middle" class="api-text">GET /api/tasks/{taskId}/download</text>
+                
+                <line x1="430" y1="1240" x2="260" y2="1240" class="return-message" />
+                <text x="345" y="1235" text-anchor="middle">返回压缩文件流 (.zip)</text>
+                
+                <line x1="260" y1="1260" x2="100" y2="1260" class="return-message" />
+                <text x="180" y="1255" text-anchor="middle">浏览器下载压缩文件</text>
+            </svg>
+        </div>
+        
+        <div class="legend">
+            <h3>图例说明</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e1f5fe;"></div>
+                <div>用户</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e3f2fd;"></div>
+                <div>前端 (React SPA)</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e8f5e9;"></div>
+                <div>后端 API (FastAPI)</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #fff3e0;"></div>
+                <div>任务队列 (Celery)</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #f3e5f5;"></div>
+                <div>AI 模型 API</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

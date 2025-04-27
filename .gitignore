@@ -1,3 +1,58 @@
-api_configs/*
-!api_configs/example.json
+# Byte-compiled files
+*.pyc
+__pycache__/
 
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Operating System files
+.DS_Store
+.localized
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.nox/
+
+# Jupyter Notebook files
+.ipynb_checkpoints
+
+# Python specific file names and directories
+celerybeat-schedule
+.spyderproject
+.spyproject
+.ropeproject
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# Virtual environment
+# created by virtualenv
+.venv/
+venv/
+
+# 其他可能需要忽略的文件或目录 (根据你的项目添加或移除)
+logs/
+*.log
+*.swp # vim swap files
+*.swo # vim swap files
+tags # ctag files
