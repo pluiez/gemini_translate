@@ -17,14 +17,11 @@ from pathlib import Path
 from typing import *
 
 import openai
+import logging
 
-logging.basicConfig(
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s ",
-    level=logging.INFO,
-    stream=sys.stderr,
-)
 
-logger = logging.getLogger("client")
+logger = logging.getLogger('concurrent_api')
+
 
 for log_name, log_obj in logging.Logger.manager.loggerDict.items():
     if log_name != "client":
@@ -328,7 +325,7 @@ class Client(object):
                 pass
             except Exception as e:
                 # Retry if the OpenAI API returns an error
-                print(f"Irrecoverable error ({e}) for request: {json.dumps(messages, ensure_ascii=False)}", file=sys.stderr)
+                logger.error(f"Irrecoverable error ({e}) for request: {json.dumps(messages, ensure_ascii=False)}")
                 if (
                     "We've encountered an issue with repetitive patterns in your prompt"
                     in str(e)
@@ -341,7 +338,7 @@ class Client(object):
                     raise e
 
             max_retries -= 1
-            print(f"Failed to get response from OpenAI API. Retrying...", file=sys.stderr)
+            logger.error(f"Failed to get response from OpenAI API. Error={e}, Retrying...")
             time.sleep(1)
 
         if max_retries == 0:

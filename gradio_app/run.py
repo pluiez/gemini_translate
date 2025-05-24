@@ -1,4 +1,6 @@
 import json
+import uuid
+import sys
 import copy
 import functools
 import argparse
@@ -16,6 +18,13 @@ import concurrent_api
 import generate_requests
 
 import re
+
+import logging
+logging.root.handlers = []
+logging.basicConfig(format='%(asctime)s | %(levelname)s | %(name)s | %(message)s ', level=logging.INFO,
+                    stream=sys.stderr)
+
+logger = logging.getLogger('train')
 
 # ===== 常量定义 =====
 # 目标语言选项列表
@@ -285,12 +294,12 @@ def process_requests(
 
         for x in file_inputs:
             uuid2outputs[x["uuid"]] = [x]
-        
+
         filenames.append(file_inputs[0]["filename"])
-    
+
     if mode == "rewrite":
         for _, outputs in uuid2outputs.items():
-            # deepcopy the outputs for num_rewrites times 
+            # deepcopy the outputs for num_rewrites times
             for _ in range(num_rewrites - 1):
                 outputs.append(copy.deepcopy(outputs[0]))
 
@@ -358,7 +367,7 @@ def process_requests(
                 outputs[0]["data"].update(translation_dict)
         else:
             raise NotImplementedError(f"Unknown type: {x['type']}")
-            
+
     if count_failed > 0:
         gr.Warning(
             f"Failed to translate {count_failed} out of {len(responses)} requests.", title="Processing", duration=5
@@ -398,7 +407,7 @@ def process_requests(
         # Get the current date and time for the zip filename
         now = datetime.now()
         formatted_time = now.strftime("%Y%m%d-%H%M%S")
-        zip_file_path = f"outputs/{formatted_time}.zip"
+        zip_file_path = f"outputs/{formatted_time}.{uuid.uuid4()}.zip"
 
         # Create a zip file containing all files from the temporary directory
         # Create the outputs directory if it doesn't exist
@@ -495,7 +504,7 @@ if __name__ == "__main__":
                 dropdown_model = create_model_dropdown()
                 dropdown_target_language = create_target_language_dropdown()
                 slider_max_workers = create_max_workers_slider()
-                
+
             with gr.Column():
                 button_upload_api_config = gr.UploadButton(
                     "Upload API Config", file_count="single"
@@ -518,7 +527,7 @@ if __name__ == "__main__":
         def save_setting(name, value, storage):
             storage[name] = value
             return storage
-        
+
         # 定义需要持久化的设置项及其对应的UI组件
         persistent_settings = [
             {"name": "mode", "component": radio_mode},
@@ -527,7 +536,7 @@ if __name__ == "__main__":
             {"name": "max_workers", "component": slider_max_workers},
             {"name": "selected_model", "component": dropdown_model}
         ]
-        
+
         # 统一注册所有持久化事件
         for setting in persistent_settings:
             setting["component"].change(
@@ -583,8 +592,8 @@ if __name__ == "__main__":
         )
 
         @demo.load(inputs=[local_storage], outputs=[
-            gr_json_api_config, 
-            dropdown_model, 
+            gr_json_api_config,
+            dropdown_model,
             dropdown_target_language,
             slider_max_workers,
             radio_mode,
@@ -592,45 +601,45 @@ if __name__ == "__main__":
         ])
         def load_from_local_storage(saved_values):
             print("loading from local storage", saved_values)
-            
+
             # 恢复API配置和模型选择
             api_config = saved_values.get("api_config", {})
             model_choices = list(api_config.keys())
             selected_model = saved_values.get("selected_model", "")
-            
+
             if selected_model not in model_choices and model_choices:
                 selected_model = model_choices[0]
-                
+
             # 恢复处理模式
             mode = saved_values.get("mode", "translate")
-            
+
             # 使用工厂函数创建组件 - 保持参数一致性
             new_dropdown_model = create_model_dropdown(
                 choices=model_choices,
                 value=selected_model or None
             )
-            
+
             new_dropdown_target_language = create_target_language_dropdown(
                 value=saved_values.get("target_language", "English"),
                 interactive=(mode == "translate")
             )
-            
+
             new_slider_max_workers = create_max_workers_slider(
                 value=saved_values.get("max_workers", 1)
             )
-            
+
             new_radio_mode = create_radio_mode(
                 value=mode
             )
-            
+
             new_slider_num_rewrites = create_num_rewrites_slider(
                 value=saved_values.get("num_rewrites", 3),
                 interactive=(mode == "rewrite")
             )
 
             return [
-                api_config, 
-                new_dropdown_model, 
+                api_config,
+                new_dropdown_model,
                 new_dropdown_target_language,
                 new_slider_max_workers,
                 new_radio_mode,
